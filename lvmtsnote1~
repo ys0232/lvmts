@@ -1,0 +1,100 @@
+基于 LVM 的分层存储方案
+
+Linux 的逻辑卷管理（LVM）提供了存储虚拟化，可以将多个物理卷（PV）建成一个卷组（VG），
+然后再在 VG 里创建虚拟卷（VG）。而且 LVM 提供了在不同物理卷之间迁移数据的 API。因此，
+基于 LVM 的分层存储方案借助 LVM 的虚拟化和数据迁移的能力，实现会更简单。
+
+
+This file records information about lvmts from "SSD, LVM, Tiered storage - 
+speeding up your storage - alpha version"(https://bbs.archlinux.org/viewtopic.php?id=113529)
+
+you can use lvmts through the following steps:
+
+1) compile
+git clone git://github.com/tomato42/lvmts.git
+cd lvmts
+gcc -std=gnu99 -Wall lvmtsd.c -o lvmtsd -Os
+
+2) install blktrace
+sudo apt install blktrace
+
+3) clean cache
+sync
+echo 1 > /proc/sys/vm/drop_caches
+echo 2 > /proc/sys/vm/drop_caches
+
+4) run
+btrace -a complete /dev/volume-group/lv-name |
+ ./lvmtsd <first physical extent of LV> <number of free extents on SSD>
+
+5) Run your workload (the longer the better)
+ 
+6) In another terminal do
+killall blktrace
+(Don't Ctrl+C the lvmtsd or you'll loose all data.)
+
+7) lvmtsd will print extents to move, it's best to move them in small groups
+ (it groups them in tens by default) using pvmove. For example:
+ pvmove /dev/md0:0:21:213:1024:1025:1026 /dev/md1
+ (where /dev/md0 is disk RAID and /dev/md1 is SSD RAID)
+ 
+Note: It can't handle non continuous LVs, yet. It can handle extending the LV 
+during work though.
+
+
+
+Requirements:
+* LVM setup with at least two physical volumes (PVs), SSD and HDD combo recommended,
+ fast and slow HDDs (like RAID10 with RAID5) will work too, but won't have the same impact
+* root access
+
+How to use
+First, make sure you have dependencies installed:
+
+How to use
+First, make sure you have dependencies installed:
+
+pacman -S lvm2 blktrace confuse base-devel git
+
+Checkout and compile:
+
+git clone https://github.com/tomato42/lvmts.git
+cd lvmts
+make
+
+Switch to root.
+
+Mount debugfs (this has to be done on every restart):
+
+mount -t debugfs debugfs /sys/kernel/debug
+
+Start collector daemon (best to do it in directory you compiled the application):
+
+./lvmtscd -f volumeGroupName-logicalVolumeName.lvmts -l /dev/volumeGroupName/logicalVolumeName
+
+Now, while the stats are collecting, lets edit the doc/sample.conf config file.
+Don't rename it, don't move it, its path is hard-coded in the application (for now), just edit.
+
+You need to change the title of the "volume" section from "stacja-dane" to the name of file (-f parameter of lvmtscd sans ".lvmts")
+Then set "LogicalVolume" and "VolumeGroup" to names of actual LVM entities. You may want to increase pvmoveWait to 5m and checkWait to 10m or more.
+
+The the most important part, defining tiers. The highest tier (fastest) has lowest "tier" number. "path" is the name of physical volume in volume group containing LogicalVolume.
+pinningScore is how much better must be extents in lower tiers to cause a swap to occur.
+maxUsedSpace limits how much may be used by this LV. (there are always 5 extents left free to allow swaps between tiers)
+
+Tiers have to have different tier numbers and non-increasing pinningScore.
+
+When you have edited the file, just start lvmtsd:
+
+./lvmtsd
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+

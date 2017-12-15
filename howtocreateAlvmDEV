@@ -1,0 +1,29 @@
+http://www.linuxidc.com/Linux/2015-08/121117.htm
+
+
+    fdisk -l
+
+    fdisk /dev/sdb
+n  -->  p  --> 1 (创建新硬盘主分区）
+t  -->  8e ( 更改为 LVM 分区类型)
+
+p  -->  w (输出分区设置情况，保存后退出)
+
+ apt install lvm2
+ 
+systemctl enable lvm2-lvmetad.service
+systemctl enable lvm2-lvmetad.socket
+systemctl start lvm2-lvmetad.service
+systemctl start lvm2-lvmetad.socket
+
+pvcreate /dev/sdb1
+
+vgcreate vgpool /dev/sdb1
+
+lvcreate -L 3G-n vgpool
+
+mkfs -t ext3 /dev/vgpool/lvol0
+
+mkdir /mnt/stuff
+
+mount -t ext3 /dev/vgpool/lvol0 /mnt/stuff
