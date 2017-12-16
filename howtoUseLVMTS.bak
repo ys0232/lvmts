@@ -52,7 +52,6 @@ xfs_growfs /dev/mapper/vg_mysql0121366-LogVol01
 lvcreate vgpool -L 500G -n data /dev/sda
 
 lvconvert --type cache-pool --poolmetadata vgpool/meta vgpool/cache
-lvconvert --type cache --cachepool vgpool/cache vgpool/data
 
 
 
